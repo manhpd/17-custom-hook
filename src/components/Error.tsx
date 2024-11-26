@@ -1,4 +1,4 @@
-export default function Error({ title, message, onConfirm }) {
+export default function Error({ title, message, onConfirm } : { title: string, message: string, onConfirm?: () => void }) {
   return (
     <div className="error">
       <h2>{title}</h2>

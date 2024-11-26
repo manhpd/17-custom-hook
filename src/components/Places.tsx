@@ -1,3 +1,23 @@
+import React from "react";
+
+export interface Place {
+  id: string;
+  image: {
+    src: string;
+    alt: string;
+  };
+  title: string;
+}
+
+interface PlacesProps {
+  title: string;
+  places: Place[];
+  fallbackText: string;
+  onSelectPlace: (place: Place) => void;
+  isLoading: boolean;
+  loadingText: string;
+}
+
 export default function Places({
   title,
   places,
@@ -5,7 +25,7 @@ export default function Places({
   onSelectPlace,
   isLoading,
   loadingText,
-}) {
+}: PlacesProps) {
   console.log(places);
   return (
     <section className="places-category">
