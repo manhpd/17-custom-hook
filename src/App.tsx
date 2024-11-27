@@ -1,41 +1,24 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 
-import Places from './components/Places.jsx';
+import Places, { Place } from './components/Places.jsx';
 import Modal from './components/Modal.jsx';
 import DeleteConfirmation from './components/DeleteConfirmation.jsx';
 import logoImg from './assets/logo.png';
 import AvailablePlaces from './components/AvailablePlaces.jsx';
 import { fetchUserPlaces, updateUserPlaces } from './http.js';
 import Error from './components/Error.jsx';
+import useFetch from './hooks/useFetch.js';
 
 function App() {
-  const selectedPlace = useRef();
+  const selectedPlace = useRef<Place | null>(null);
 
-  const [userPlaces, setUserPlaces] = useState([]);
-  const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState();
-
-  const [errorUpdatingPlaces, setErrorUpdatingPlaces] = useState();
+  const [errorUpdatingPlaces, setErrorUpdatingPlaces] = useState<undefined | { message: string }>(undefined);
 
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
-  useEffect(() => {
-    async function fetchPlaces() {
-      setIsFetching(true);
-      try {
-        const places = await fetchUserPlaces();
-        setUserPlaces(places);
-      } catch (error) {
-        setError({ message: error.message || 'Failed to fetch user places.' });
-      }
+  const { data: userPlaces, isFetching, error, setData: setUserPlaces } = useFetch<Place[]>(fetchUserPlaces, []);
 
-      setIsFetching(false);
-    }
-
-    fetchPlaces();
-  }, []);
-
-  function handleStartRemovePlace(place) {
+  function handleStartRemovePlace(place: Place) {
     setModalIsOpen(true);
     selectedPlace.current = place;
   }
@@ -44,26 +27,23 @@ function App() {
     setModalIsOpen(false);
   }
 
-  async function handleSelectPlace(selectedPlace) {
-    // await updateUserPlaces([selectedPlace, ...userPlaces]);
+  async function handleSelectPlace(selectedPlace: Place) {
+    await updateUserPlaces([selectedPlace, ...(userPlaces || [])]);
 
-    setUserPlaces((prevPickedPlaces) => {
+    setUserPlaces((prevPickedPlaces: Place[]) => {
       if (!prevPickedPlaces) {
         prevPickedPlaces = [];
       }
-      if (prevPickedPlaces.some((place) => place.id === selectedPlace.id)) {
+      if (prevPickedPlaces.some((place: { id: string; }) => place.id === selectedPlace.id)) {
         return prevPickedPlaces;
       }
       return [selectedPlace, ...prevPickedPlaces];
     });
 
     try {
-      await updateUserPlaces([selectedPlace, ...userPlaces]);
+      await updateUserPlaces([selectedPlace, ...(userPlaces || [])]);
     } catch (error) {
-      setUserPlaces(userPlaces);
-      setErrorUpdatingPlaces({
-        message: error.message || 'Failed to update places.',
-      });
+      setUserPlaces(userPlaces || []);
     }
   }
 
@@ -71,33 +51,33 @@ function App() {
     async function handleRemovePlace() {
       setUserPlaces((prevPickedPlaces) =>
         prevPickedPlaces.filter(
-          (place) => place.id !== selectedPlace.current.id
+          (place) => selectedPlace.current && place.id !== selectedPlace.current.id
         )
       );
 
-      try {
-        await updateUserPlaces(
-          userPlaces.filter((place) => place.id !== selectedPlace.current.id)
-        );
-      } catch (error) {
-        setUserPlaces(userPlaces);
-        setErrorUpdatingPlaces({
-          message: error.message || 'Failed to delete place.',
-        });
+      if (userPlaces && !userPlaces.length) {
+
+        try {
+          await updateUserPlaces(
+            userPlaces.filter((place) => selectedPlace.current && place.id !== selectedPlace.current.id)
+          );
+        } catch (error) {
+          setUserPlaces(userPlaces || []);
+        }
       }
 
       setModalIsOpen(false);
     },
-    [userPlaces]
+    [userPlaces, setUserPlaces]
   );
 
   function handleError() {
-    setErrorUpdatingPlaces(null);
+    setErrorUpdatingPlaces(undefined);
   }
 
   return (
     <>
-      <Modal open={errorUpdatingPlaces} onClose={handleError}>
+      <Modal open={!!errorUpdatingPlaces} onClose={handleError}>
         {errorUpdatingPlaces && (
           <Error
             title="An error occurred!"
@@ -130,7 +110,7 @@ function App() {
             fallbackText="Select the places you would like to visit below."
             isLoading={isFetching}
             loadingText="Fetching your places..."
-            places={userPlaces}
+            places={userPlaces || []}
             onSelectPlace={handleStartRemovePlace}
           />
         )}
